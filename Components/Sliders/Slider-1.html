@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Slider1</title>
+<style>
+body{margin:0;height:100vh;display:grid;place-items:center;background:#fafafa;overflow:hidden}
+
+.sl{--bg:#fafafa;--track:#f4f4f5;--line:#e4e4e7;--ink:#18181b;--paper:#fff;--w:min(90vw,1280px);
+  position:relative;width:var(--w);height:208px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline:none;
+  font:700 3.9rem/1 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.sl.drag{cursor:grabbing}
+.sl *{box-sizing:border-box}
+.sl-t{position:absolute;inset:50% 0 auto;transform:translateY(-50%);height:108px;border-radius:999px;background:var(--track);border:1px solid var(--line);overflow:hidden}
+.sl-f{position:absolute;inset:0 auto 0 0;width:50%;background:var(--ink)}
+.sl-m{position:absolute;top:50%;width:40px;height:40px;margin:-20px;border-radius:50%;background:var(--paper);border:1px solid #0000000f}
+.sl-h{position:absolute;top:50%;left:50%;width:192px;height:192px;margin:-96px;border-radius:50%;background:var(--ink);border:20px solid var(--bg);transition:transform .14s ease}
+.sl-b{--hw:92px;position:absolute;left:clamp(var(--hw),var(--p,50%),calc(100% - var(--hw)));bottom:calc(50% + 138px);width:184px;height:118px;border-radius:26px;
+  background:var(--ink);color:var(--paper);display:grid;place-items:center;letter-spacing:-.04em;font-variant-numeric:tabular-nums;pointer-events:none;
+  opacity:0;transform:translate(-50%,14px) scale(.95);transition:opacity .16s ease,transform .2s cubic-bezier(.2,.9,.25,1)}
+.sl-b::after{content:"";position:absolute;left:50%;bottom:-12px;width:26px;height:26px;background:var(--ink);border-radius:3px;transform:translateX(-50%) rotate(45deg)}
+.sl.on .sl-b{opacity:1;transform:translate(-50%,0) scale(1)}
+.sl.on .sl-h{transform:scale(1.03)}
+@media(max-width:640px){
+  .sl{--w:92vw;height:152px;font-size:2.7rem}.sl-t{height:76px}
+  .sl-m{width:26px;height:26px;margin:-13px}
+  .sl-h{width:134px;height:134px;margin:-67px;border-width:14px}
+  .sl-b{--hw:67px;bottom:calc(50% + 99px);width:134px;height:88px;border-radius:20px}
+  .sl-b::after{width:18px;height:18px;bottom:-8px}}
+
+</style>
+</head>
+<body>
+
+<div class="sl" data-value="50" data-dots="4.5,29,71,95.5"></div>
+
+<script>
+
+document.querySelectorAll('.sl').forEach(s => {
+  s.tabIndex = 0; s.role = 'slider'; s.ariaValueMin = 0; s.ariaValueMax = 100;
+  s.innerHTML = `<div class="sl-b"></div><div class="sl-t"><div class="sl-f"></div>${
+    (s.dataset.dots || '').split(',').filter(Boolean).map(d => `<i class="sl-m" style="left:${d}%"></i>`).join('')
+  }</div><div class="sl-h"></div>`;
+  const [b, f, h] = ['b', 'f', 'h'].map(c => s.querySelector('.sl-' + c));
+  const cl = n => Math.min(100, Math.max(0, n));
+  let v = +s.dataset.value || 0, t = v, drag = false, raf, hideT;
+
+  const draw = () => {
+    f.style.width = h.style.left = v + '%';
+    b.style.setProperty('--p', v + '%');
+    b.textContent = s.ariaValueNow = Math.round(v);
+  };
+  const loop = () => {
+    const d = t - v;
+    v = Math.abs(d) < .015 ? t : v + d * .18;
+    draw();
+    raf = v === t ? null : requestAnimationFrame(loop);
+  };
+  const go = n => { t = cl(n); raf ||= requestAnimationFrame(loop); };
+  const show = () => { clearTimeout(hideT); s.classList.add('on'); };
+  const hide = (ms = 180) => { clearTimeout(hideT); hideT = setTimeout(() => drag || s.classList.remove('on'), ms); };
+  const x = e => { const r = s.getBoundingClientRect(); return (e.clientX - r.left) / r.width * 100; };
+  const end = () => { if (!drag) return; drag = false; s.classList.remove('drag'); hide(); };
+
+  s.onpointerdown = e => {
+    e.preventDefault(); s.focus({ preventScroll: true });
+    drag = true; s.classList.add('drag'); s.setPointerCapture(e.pointerId); show(); go(x(e));
+  };
+  s.onpointermove = e => drag && go(x(e));
+  s.onpointerup = s.onpointercancel = end;
+  addEventListener('pointerup', end);
+  s.addEventListener('wheel', e => {
+    e.preventDefault();
+    show(); go(t - (Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX) * .04); hide(420);
+  }, { passive: false });
+  s.onkeydown = e => {
+    const k = { ArrowRight: t + 1, ArrowUp: t + 1, ArrowLeft: t - 1, ArrowDown: t - 1, PageUp: t + 10, PageDown: t - 10, Home: 0, End: 100 }[e.key];
+    if (k === undefined) return;
+    e.preventDefault(); show(); go(k); hide(500);
+  };
+  draw();
+});
+</script>
+</body>
+</html>
